@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BlockchainAssignment
@@ -41,13 +44,11 @@ namespace BlockchainAssignment
 
         public override string ToString()
         {
-            // Output every block — used by the "Read All Blocks" button on the UI
             return String.Join("\n\n", Blocks);
         }
 
         public double GetBalance(String address)
         {
-            // Walk every confirmed transaction in every block; debit sender, credit recipient
             double balance = 0.0;
             foreach (Block b in Blocks)
             {
@@ -66,21 +67,185 @@ namespace BlockchainAssignment
             return balance;
         }
 
-        // Validation helper: re-compute the block's Merkle root from its transactions and compare
         public static bool ValidateMerkleRoot(Block b)
         {
             String reMerkle = Block.MerkleRoot(b.transactionList);
             return reMerkle.Equals(b.merkleRoot);
         }
 
-        // FIX (bug #5 helper): re-hash the block with its stored fields and compare to its stored hash
-        // If a malicious actor altered any field after mining, the recomputed hash will not match.
         public static bool ValidateHash(Block b)
         {
-            // We need to call CreateHash on the block instance. Since CreateHash uses the *current* nonce
-            // and the stored merkleRoot, this checks both PoW integrity AND that fields haven't been tampered.
             String reHash = b.CreateHash();
             return reHash.Equals(b.hash);
+        }
+
+        // ====================================================================
+        // Task 6.1 — Benchmarking multi-threaded mining
+        // ====================================================================
+        // Runs the threading vs single-thread comparison automatically:
+        // for each (difficulty, threadCount) combination, mine `trials` times and report the median time.
+        // Uses standalone hashing (does NOT add anything to the chain) so it's safe to run repeatedly.
+        // The progressCallback (optional) is invoked between trials so the UI can show a status indicator.
+        // ====================================================================
+
+        public delegate void BenchmarkProgressCallback(string message);
+
+        public static String RunBenchmark(BenchmarkProgressCallback progressCallback = null)
+        {
+            // Defaults chosen so the whole sweep finishes in roughly a minute on a typical laptop:
+            //   DD=4  is fast enough that thread overhead may dominate
+            //   DD=5  is where multi-threading typically starts to pay off
+            //   DD=6  shows the scaling clearly but adds the most time
+            int[] difficulties = new int[] { 4, 5, 6 };
+            int[] threadCounts = new int[] { 1, 2, 4, 8 };
+            int trials = 3;
+
+            // results[dd][tc] = list of elapsed times in ms
+            Dictionary<int, Dictionary<int, List<long>>> results = new Dictionary<int, Dictionary<int, List<long>>>();
+
+            int totalRuns = difficulties.Length * threadCounts.Length * trials;
+            int currentRun = 0;
+
+            foreach (int dd in difficulties)
+            {
+                results[dd] = new Dictionary<int, List<long>>();
+                foreach (int tc in threadCounts)
+                {
+                    results[dd][tc] = new List<long>();
+                    for (int trial = 0; trial < trials; trial++)
+                    {
+                        currentRun++;
+                        if (progressCallback != null)
+                        {
+                            progressCallback(String.Format("[{0}/{1}] DD={2}, threads={3}, trial={4}",
+                                currentRun, totalRuns, dd, tc, trial + 1));
+                        }
+                        long elapsed = BenchmarkSingleMine(dd, tc);
+                        results[dd][tc].Add(elapsed);
+                    }
+                }
+            }
+
+            // Build the report-ready summary table
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("============================================================");
+            sb.AppendLine("   TASK 6.1 — MULTI-THREADED MINING BENCHMARK");
+            sb.AppendLine("============================================================");
+            sb.AppendLine("Each cell shows the MEDIAN of " + trials + " trials, in milliseconds.");
+            sb.AppendLine("Lower = faster. Compare across rows to see the threading benefit at each difficulty.");
+            sb.AppendLine();
+
+            // Header row
+            sb.Append("  Difficulty");
+            foreach (int tc in threadCounts)
+                sb.Append(String.Format(" |{0,7} thread{1}", tc, tc == 1 ? " " : "s"));
+            sb.AppendLine(" |");
+            sb.AppendLine("  ----------" + String.Concat(threadCounts.Select(_ => "-+--------------")) + "-+");
+
+            // Body rows
+            foreach (int dd in difficulties)
+            {
+                sb.Append(String.Format("  {0,10}", dd));
+                foreach (int tc in threadCounts)
+                {
+                    long med = Median(results[dd][tc]);
+                    sb.Append(String.Format(" |{0,11} ms ", med));
+                }
+                sb.AppendLine(" |");
+            }
+
+            // Speedup analysis (relative to single-threaded baseline at the same difficulty)
+            sb.AppendLine();
+            sb.AppendLine("  SPEEDUP vs single-threaded (higher is better, 1.00x = no improvement):");
+            sb.Append("  Difficulty");
+            foreach (int tc in threadCounts)
+                sb.Append(String.Format(" |{0,7} thread{1}", tc, tc == 1 ? " " : "s"));
+            sb.AppendLine(" |");
+            sb.AppendLine("  ----------" + String.Concat(threadCounts.Select(_ => "-+--------------")) + "-+");
+            foreach (int dd in difficulties)
+            {
+                sb.Append(String.Format("  {0,10}", dd));
+                long baseline = Median(results[dd][threadCounts[0]]);  // 1-thread time at this difficulty
+                foreach (int tc in threadCounts)
+                {
+                    long med = Median(results[dd][tc]);
+                    double speedup = med > 0 ? (double)baseline / med : 1.0;
+                    sb.Append(String.Format(" |{0,11:F2}x  ", speedup));
+                }
+                sb.AppendLine(" |");
+            }
+
+            // Raw data dump for the appendix
+            sb.AppendLine();
+            sb.AppendLine("  RAW DATA (all " + trials + " trials per cell, ms):");
+            foreach (int dd in difficulties)
+            {
+                sb.AppendLine();
+                sb.AppendLine("  Difficulty " + dd + ":");
+                foreach (int tc in threadCounts)
+                {
+                    sb.AppendLine("    " + tc + " thread" + (tc == 1 ? " " : "s") + ": [" +
+                        String.Join(", ", results[dd][tc].Select(x => x.ToString())) + "]");
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        // Standalone, chain-free mining used by the benchmark above.
+        // Mirrors the threading and e-nonce logic of Block.MineThreaded but operates on synthetic data
+        // so the benchmark does not pollute the real blockchain with throwaway test blocks.
+        private static long BenchmarkSingleMine(int difficulty, int threadCount)
+        {
+            // Distinct synthetic input per call so caches don't bias the measurement
+            String fakeBlockData = "BENCHMARK|" + DateTime.Now.Ticks + "|prev:" + Guid.NewGuid().ToString() + "|";
+            String target = new String('0', difficulty);
+
+            Stopwatch sw = Stopwatch.StartNew();
+            CancellationTokenSource cts = new CancellationTokenSource();
+            bool found = false;
+            object lockObj = new object();
+
+            Task[] tasks = new Task[threadCount];
+            for (int t = 0; t < threadCount; t++)
+            {
+                long myEnonce = t;
+                CancellationToken token = cts.Token;
+                tasks[t] = Task.Run(() =>
+                {
+                    SHA256 hasher = SHA256Managed.Create();
+                    long localNonce = 0;
+                    while (!token.IsCancellationRequested)
+                    {
+                        String input = fakeBlockData + "n=" + localNonce + ",en=" + myEnonce;
+                        Byte[] bytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(input));
+                        String h = String.Empty;
+                        foreach (byte b in bytes) h += String.Format("{0:x2}", b);
+
+                        if (h.StartsWith(target))
+                        {
+                            lock (lockObj) { if (!found) { found = true; cts.Cancel(); } }
+                            return;
+                        }
+                        localNonce++;
+                    }
+                }, token);
+            }
+
+            try { Task.WaitAll(tasks); }
+            catch (AggregateException) { /* expected on cancellation */ }
+
+            sw.Stop();
+            return sw.ElapsedMilliseconds;
+        }
+
+        private static long Median(List<long> values)
+        {
+            List<long> sorted = values.OrderBy(x => x).ToList();
+            int n = sorted.Count;
+            if (n == 0) return 0;
+            if (n % 2 == 1) return sorted[n / 2];
+            return (sorted[(n / 2) - 1] + sorted[n / 2]) / 2;
         }
     }
 }

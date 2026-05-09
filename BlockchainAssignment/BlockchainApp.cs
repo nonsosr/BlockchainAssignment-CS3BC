@@ -5,7 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading.Tasks;     
 using System.Windows.Forms;
 
 namespace BlockchainAssignment
@@ -25,9 +25,8 @@ namespace BlockchainAssignment
         {
         }
 
-        // ===================== PRINTING =====================
+        // Printing
 
-        // Print BlockN (based on user input)
         private void button1_Click(object sender, EventArgs e)
         {
             int index;
@@ -41,13 +40,11 @@ namespace BlockchainAssignment
             }
         }
 
-        // NEW: Read All Blocks — prints the entire chain
         private void readAll_Click(object sender, EventArgs e)
         {
             richTextBox1.Text = blockchain.ToString();
         }
 
-        // NEW: Print Pending Transactions — prints the transaction pool contents
         private void printPending_Click(object sender, EventArgs e)
         {
             if (blockchain.transactionPool.Count == 0)
@@ -65,11 +62,10 @@ namespace BlockchainAssignment
         {
         }
 
-        // ===================== WALLETS =====================
+        // Wallets
 
         private void button2_Click(object sender, EventArgs e)
         {
-            // Generate Wallet
             String privKey;
             Wallet.Wallet myNewWallet = new Wallet.Wallet(out privKey);
             publicKey.Text = myNewWallet.publicID;
@@ -78,7 +74,6 @@ namespace BlockchainAssignment
 
         private void button3_Click(object sender, EventArgs e)
         {
-            // Validate Keys
             if (Wallet.Wallet.ValidatePrivateKey(textBox3.Text, publicKey.Text))
             {
                 richTextBox1.Text = "Keys are valid!";
@@ -89,11 +84,10 @@ namespace BlockchainAssignment
             }
         }
 
-        // ===================== TRANSACTIONS =====================
+        // Transaction creation with validation of inputs and balance check before adding to pool
 
         private void createTransaction_Click(object sender, EventArgs e)
         {
-            // Basic input validation
             double amt, f;
             if (!Double.TryParse(amount.Text, out amt) || !Double.TryParse(fee.Text, out f))
             {
@@ -107,8 +101,6 @@ namespace BlockchainAssignment
                 return;
             }
 
-            // FIX (missing feature): balance check before allowing the transaction.
-            // Prevents double-spend / overspend; the spec calls for this in Part 5.
             double senderBalance = blockchain.GetBalance(publicKey.Text);
             if (senderBalance < amt + f)
             {
@@ -123,23 +115,90 @@ namespace BlockchainAssignment
             richTextBox1.Text = "Transaction created and added to pool:\n\n" + newTransaction.ToString();
         }
 
-        // ===================== BLOCKS =====================
+        // Task 6.1 threading
 
-        private void newBlock_Click(object sender, EventArgs e)
+        // async void event handlers are the standard WinForms pattern for using await in Click handlers
+        private async void newBlock_Click(object sender, EventArgs e)
         {
-            // Pull pending transactions, mine a new block referencing the previous, append to chain
+            // Read mining settings from the UI on the UI thread before launching the background task
+            int diffNum = (int)difficultyInput.Value;
+            int threadNum = (int)threadCountInput.Value;
+            String minerAddr = publicKey.Text;
             List<Transaction> transactions = blockchain.getPendingTransactions();
-            Block newBlock = new Block(blockchain.GetLastBlock(), transactions, publicKey.Text);
-            blockchain.Blocks.Add(newBlock);
+            Block lastBlock = blockchain.GetLastBlock();
 
-            richTextBox1.Text = "New block mined:\n\n" + newBlock.ToString();
+            // Disable the buttons while mining is in progress so users can't trigger overlapping mines
+            SetMiningButtonsEnabled(false);
+            richTextBox1.Text = "Mining new block (threads: " + threadNum + ", difficulty: " + diffNum + ") — please wait...";
+
+            try
+            {
+                // Run the actual mining on a background thread so the UI stays responsive
+                Block newBlock = await Task.Run(() =>
+                    new Block(lastBlock, transactions, minerAddr, diffNum, threadNum));
+
+                blockchain.Blocks.Add(newBlock);
+                richTextBox1.Text = "New block mined in " + newBlock.miningTimeMs + " ms"
+                    + " (threads: " + threadNum + ", difficulty: " + diffNum + ")\n\n"
+                    + newBlock.ToString();
+            }
+            catch (Exception ex)
+            {
+                richTextBox1.Text = "Mining failed: " + ex.Message;
+            }
+            finally
+            {
+                SetMiningButtonsEnabled(true);
+            }
         }
 
-        // ===================== VALIDATION =====================
+        // TASK 6.1 — BENCHMARK
+
+        private async void runBenchmark_Click(object sender, EventArgs e)
+        {
+            SetMiningButtonsEnabled(false);
+            runBenchmark.Text = "Running...";
+            richTextBox1.Text = "Running benchmark — this typically takes ~1 minute.\n\nProgress will appear below as each combination completes.";
+
+            try
+            {
+                String result = await Task.Run(() => Blockchain.RunBenchmark((progress) =>
+                {
+                    // Marshal the progress update onto the UI thread; rich text box mutation must happen on UI thread
+                    if (this.IsHandleCreated)
+                    {
+                        this.BeginInvoke(new Action(() =>
+                        {
+                            runBenchmark.Text = "Running... " + progress;
+                        }));
+                    }
+                }));
+
+                richTextBox1.Text = result;
+            }
+            catch (Exception ex)
+            {
+                richTextBox1.Text = "Benchmark failed: " + ex.Message;
+            }
+            finally
+            {
+                runBenchmark.Text = "Run Benchmark";
+                SetMiningButtonsEnabled(true);
+            }
+        }
+
+        // Helper to enable/disable mining-related buttons together so we can't trigger overlapping work
+        private void SetMiningButtonsEnabled(bool enabled)
+        {
+            newBlock.Enabled = enabled;
+            runBenchmark.Enabled = enabled;
+            createTransaction.Enabled = enabled;
+        }
+
+        // Validation
 
         private void validateChain_Click(object sender, EventArgs e)
         {
-            // CASE: only the genesis block exists — validate its hash and Merkle root only
             if (blockchain.Blocks.Count == 1)
             {
                 Block g = blockchain.Blocks[0];
@@ -154,26 +213,21 @@ namespace BlockchainAssignment
                 return;
             }
 
-            // FIX (bug #4): walk every block from index 1 to Count-1 inclusive.
-            // The previous loop used `i < Count - 1` which silently skipped the most recent block.
             for (int i = 1; i < blockchain.Blocks.Count; i++)
             {
                 Block current = blockchain.Blocks[i];
                 Block prev = blockchain.Blocks[i - 1];
 
-                // 1. Hash chain coherence — current.prevHash must equal previous block's stored hash
                 if (current.prevHash != prev.hash)
                 {
                     richTextBox1.Text = "Blockchain is INVALID — broken hash link at block " + i;
                     return;
                 }
-                // 2. Block hash integrity — re-hash the block and compare (FIX bug #5)
                 if (!Blockchain.ValidateHash(current))
                 {
                     richTextBox1.Text = "Blockchain is INVALID — hash mismatch at block " + i;
                     return;
                 }
-                // 3. Merkle root integrity — re-compute the Merkle root from transactions and compare
                 if (!Blockchain.ValidateMerkleRoot(current))
                 {
                     richTextBox1.Text = "Blockchain is INVALID — Merkle root mismatch at block " + i;

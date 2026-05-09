@@ -2,15 +2,8 @@
 {
     partial class BlockchainApp
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -22,10 +15,6 @@
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
             this.richTextBox1 = new System.Windows.Forms.RichTextBox();
@@ -49,6 +38,18 @@
             this.checkBalance = new System.Windows.Forms.Button();
             this.readAll = new System.Windows.Forms.Button();
             this.printPending = new System.Windows.Forms.Button();
+            // ===== TASK 6.1 controls =====
+            this.miningGroupBox = new System.Windows.Forms.GroupBox();
+            this.threadLabel = new System.Windows.Forms.Label();
+            this.threadCountInput = new System.Windows.Forms.NumericUpDown();
+            this.difficultyLabel = new System.Windows.Forms.Label();
+            this.difficultyInput = new System.Windows.Forms.NumericUpDown();
+            this.runBenchmark = new System.Windows.Forms.Button();
+            this.miningHelp = new System.Windows.Forms.Label();
+
+            this.miningGroupBox.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.threadCountInput)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.difficultyInput)).BeginInit();
             this.SuspendLayout();
             // 
             // richTextBox1
@@ -242,12 +243,87 @@
             this.printPending.UseVisualStyleBackColor = true;
             this.printPending.Click += new System.EventHandler(this.printPending_Click);
             // 
+            // ============ TASK 6.1 — Mining Settings GroupBox ============
+            // 
+            // miningGroupBox
+            // 
+            this.miningGroupBox.Controls.Add(this.miningHelp);
+            this.miningGroupBox.Controls.Add(this.runBenchmark);
+            this.miningGroupBox.Controls.Add(this.difficultyInput);
+            this.miningGroupBox.Controls.Add(this.difficultyLabel);
+            this.miningGroupBox.Controls.Add(this.threadCountInput);
+            this.miningGroupBox.Controls.Add(this.threadLabel);
+            this.miningGroupBox.Location = new System.Drawing.Point(16, 600);
+            this.miningGroupBox.Name = "miningGroupBox";
+            this.miningGroupBox.Size = new System.Drawing.Size(875, 95);
+            this.miningGroupBox.TabIndex = 21;
+            this.miningGroupBox.TabStop = false;
+            this.miningGroupBox.Text = "Task 6.1 — Threaded Mining Settings (applies to \"Generate New Block\")";
+            // 
+            // threadLabel
+            // 
+            this.threadLabel.AutoSize = true;
+            this.threadLabel.Location = new System.Drawing.Point(15, 30);
+            this.threadLabel.Name = "threadLabel";
+            this.threadLabel.Size = new System.Drawing.Size(60, 16);
+            this.threadLabel.TabIndex = 0;
+            this.threadLabel.Text = "Threads:";
+            // 
+            // threadCountInput
+            // 
+            this.threadCountInput.Location = new System.Drawing.Point(80, 28);
+            this.threadCountInput.Maximum = new decimal(new int[] { 16, 0, 0, 0 });
+            this.threadCountInput.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            this.threadCountInput.Name = "threadCountInput";
+            this.threadCountInput.Size = new System.Drawing.Size(60, 22);
+            this.threadCountInput.TabIndex = 1;
+            this.threadCountInput.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            // 
+            // difficultyLabel
+            // 
+            this.difficultyLabel.AutoSize = true;
+            this.difficultyLabel.Location = new System.Drawing.Point(160, 30);
+            this.difficultyLabel.Name = "difficultyLabel";
+            this.difficultyLabel.Size = new System.Drawing.Size(64, 16);
+            this.difficultyLabel.TabIndex = 2;
+            this.difficultyLabel.Text = "Difficulty:";
+            // 
+            // difficultyInput
+            // 
+            this.difficultyInput.Location = new System.Drawing.Point(230, 28);
+            this.difficultyInput.Maximum = new decimal(new int[] { 8, 0, 0, 0 });
+            this.difficultyInput.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            this.difficultyInput.Name = "difficultyInput";
+            this.difficultyInput.Size = new System.Drawing.Size(60, 22);
+            this.difficultyInput.TabIndex = 3;
+            this.difficultyInput.Value = new decimal(new int[] { 4, 0, 0, 0 });
+            // 
+            // runBenchmark
+            // 
+            this.runBenchmark.Location = new System.Drawing.Point(320, 23);
+            this.runBenchmark.Name = "runBenchmark";
+            this.runBenchmark.Size = new System.Drawing.Size(180, 33);
+            this.runBenchmark.TabIndex = 4;
+            this.runBenchmark.Text = "Run Benchmark";
+            this.runBenchmark.UseVisualStyleBackColor = true;
+            this.runBenchmark.Click += new System.EventHandler(this.runBenchmark_Click);
+            // 
+            // miningHelp
+            // 
+            this.miningHelp.AutoSize = true;
+            this.miningHelp.Location = new System.Drawing.Point(15, 60);
+            this.miningHelp.Name = "miningHelp";
+            this.miningHelp.Size = new System.Drawing.Size(700, 16);
+            this.miningHelp.TabIndex = 5;
+            this.miningHelp.Text = "Threads = 1 → single-threaded.  Benchmark sweeps DD={4,5,6} × threads={1,2,4,8}, 3 trials each (~1 min).";
+            // 
             // BlockchainApp
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.ClientSize = new System.Drawing.Size(919, 620);
+            this.ClientSize = new System.Drawing.Size(919, 720);
+            this.Controls.Add(this.miningGroupBox);
             this.Controls.Add(this.printPending);
             this.Controls.Add(this.readAll);
             this.Controls.Add(this.checkBalance);
@@ -272,11 +348,14 @@
             this.ForeColor = System.Drawing.Color.Black;
             this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "BlockchainApp";
-            this.Text = "Blockchain App";
+            this.Text = "Blockchain App — RadCoin";
             this.Load += new System.EventHandler(this.Form1_Load);
+            this.miningGroupBox.ResumeLayout(false);
+            this.miningGroupBox.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.threadCountInput)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.difficultyInput)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         #endregion
@@ -302,5 +381,13 @@
         private System.Windows.Forms.Button checkBalance;
         private System.Windows.Forms.Button readAll;
         private System.Windows.Forms.Button printPending;
+        // Task 6.1 controls
+        private System.Windows.Forms.GroupBox miningGroupBox;
+        private System.Windows.Forms.Label threadLabel;
+        private System.Windows.Forms.NumericUpDown threadCountInput;
+        private System.Windows.Forms.Label difficultyLabel;
+        private System.Windows.Forms.NumericUpDown difficultyInput;
+        private System.Windows.Forms.Button runBenchmark;
+        private System.Windows.Forms.Label miningHelp;
     }
 }
