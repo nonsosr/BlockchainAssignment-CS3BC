@@ -47,7 +47,7 @@ This is an academic implementation for coursework. The cryptocurrency name "RadC
 - Random → Fisher-Yates shuffle (fee-pattern resistant).
 - AddressPreference → partition by sender/recipient = miner address; miner's own transactions confirm first, remaining slots filled in arrival order.
 - Both `New Block` and `Mine Adaptive Sequence` respect the currently-selected preference.
-- "Seed Sample Transactions" button generates 25 transactions across multiple wallets, with timestamps spread over the previous 30 minutes, fees in `[0, 0.5]` and amounts in `[1, 10]` — gives each preference meaningfully different input. Signatures are properly recomputed after backdating so the seeded pool still validates.
+- "Seed Sample Transactions" button generates 20 transactions across multiple wallets, with timestamps spread over the previous 30 minutes, fees in `[0, 0.5]` and amounts in `[1, 10]` — gives each preference meaningfully different input. Signatures are properly recomputed after backdating so the seeded pool still validates.
 
 ### UI additions
 - **Read All Blocks** — print the entire chain in one click.
